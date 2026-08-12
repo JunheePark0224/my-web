@@ -2,6 +2,8 @@
 
 import { topOpportunity } from "../data.js";
 import { fmtInt, fmtStars, fmtScore, fmtRank, isNil } from "../format.js";
+import { zipHeadlineHtml } from "../summary.js";
+import { renderOpportunityBreakdown } from "../charts.js";
 
 function escapeHtml(str) {
   return String(str)
@@ -69,7 +71,7 @@ function renderCategorySelect(categories, current) {
     .join("");
 }
 
-function renderCards(top, catLabel, zipCountInCity) {
+function renderCards(top, catLabel, zipCountInCity, meta) {
   if (top.length === 0) {
     return `<p class="muted">이 업종에 대한 추천 ZIP 데이터가 없습니다.</p>`;
   }
@@ -77,12 +79,19 @@ function renderCards(top, catLabel, zipCountInCity) {
     ${top
       .map(({ zip, cat }, i) => {
         const reason = buildReason(zip, cat, catLabel, zipCountInCity);
-        return `<div class="opp-card" data-zip-id="${escapeHtml(zip.id)}" tabindex="0" role="button" aria-label="${escapeHtml(zip.zip)} 지도에서 보기">
+        const rankClass = i < 3 ? ` opp-card-top opp-card-top-${i + 1}` : "";
+        const breakdownChart =
+          i === 0
+            ? `<div class="chart-box chart-box-sm"><canvas id="opp-breakdown-chart"></canvas></div>`
+            : "";
+        return `<div class="opp-card${rankClass}" data-zip-id="${escapeHtml(zip.id)}" tabindex="0" role="button" aria-label="${escapeHtml(zip.zip)} 지도에서 보기">
           <div class="opp-card-head">
-            <span class="opp-rank">${i + 1}위</span>
+            <span class="opp-rank-badge">${i + 1}위</span>
             <span class="opp-score">${fmtScore(cat.opportunity_score)}</span>
           </div>
           <div class="opp-zip">${escapeHtml(zip.zip)}</div>
+          <p class="zip-headline zip-headline-sm">${zipHeadlineHtml(zip, meta)}</p>
+          ${breakdownChart}
           <p class="opp-reason">${escapeHtml(zip.zip)} — ${reason}</p>
         </div>`;
       })
@@ -128,7 +137,7 @@ export function render(container, ctx) {
         <span class="field-label">업종</span>
         <select id="opp-cat-select" aria-label="업종 선택">${renderCategorySelect(categories, categoryId)}</select>
       </div>
-      <div id="opp-cards">${renderCards(top, catLabel, cityZips.length)}</div>
+      <div id="opp-cards">${renderCards(top, catLabel, cityZips.length, meta)}</div>
     </div>
     <div class="panel">
       ${renderMethodology(meta)}
@@ -149,4 +158,9 @@ export function render(container, ctx) {
       }
     });
   });
+
+  if (top.length > 0) {
+    const { zip, cat } = top[0];
+    renderOpportunityBreakdown("opp-breakdown-chart", cat, zip.vitality_score);
+  }
 }

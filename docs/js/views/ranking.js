@@ -2,6 +2,7 @@
 
 import { sortZips, filterZipsBySearch } from "../data.js";
 import { fmtInt, fmtStars, fmtScore } from "../format.js";
+import { zipHeadlineHtml } from "../summary.js";
 
 const COLUMNS = [
   { key: "vitality_rank", label: "순위", num: true },
@@ -70,7 +71,7 @@ function renderTable(rows) {
 }
 
 export function render(container, ctx) {
-  const { cityZips, actions } = ctx;
+  const { cityZips, actions, meta } = ctx;
 
   container.innerHTML = `
     <div class="panel">
@@ -79,12 +80,25 @@ export function render(container, ctx) {
         <input type="search" id="rank-search" placeholder="ZIP 검색" value="${escapeHtml(searchQuery)}" aria-label="ZIP 검색" />
         <span class="muted" id="rank-count"></span>
       </div>
+      <div id="rank-selected" class="rank-selected-zip">
+        <p class="muted" style="margin:0;">행에 마우스를 올리거나 클릭하면 요약이 표시됩니다.</p>
+      </div>
       <div id="rank-table-wrap" style="overflow-x:auto;"></div>
     </div>
   `;
 
   const wrap = container.querySelector("#rank-table-wrap");
   const countEl = container.querySelector("#rank-count");
+  const selectedEl = container.querySelector("#rank-selected");
+
+  function showHeadline(z) {
+    if (!selectedEl) return;
+    if (!z) {
+      selectedEl.innerHTML = `<p class="muted" style="margin:0;">행에 마우스를 올리거나 클릭하면 요약이 표시됩니다.</p>`;
+      return;
+    }
+    selectedEl.innerHTML = `<p class="zip-headline">${zipHeadlineHtml(z, meta)}</p>`;
+  }
 
   function draw() {
     let rows = filterZipsBySearch(cityZips, searchQuery);
@@ -106,8 +120,12 @@ export function render(container, ctx) {
     });
 
     wrap.querySelectorAll("tbody tr[data-zip-id]").forEach((row) => {
-      const go = () => actions.goToZipOnMap(row.dataset.zipId);
+      const zipId = row.dataset.zipId;
+      const z = rows.find((r) => r.id === zipId);
+      const go = () => actions.goToZipOnMap(zipId);
       row.addEventListener("click", go);
+      row.addEventListener("mouseenter", () => showHeadline(z));
+      row.addEventListener("focus", () => showHeadline(z));
       row.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

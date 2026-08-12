@@ -1,6 +1,8 @@
 // views/map.js — Leaflet 지도 탭: ZIP center에 circleMarker (반지름=업체수, 색=활력점수)
 
 import { fmtInt, fmtStars, fmtScore, fmtRank } from "../format.js";
+import { zipHeadlineHtml } from "../summary.js";
+import { renderZipCatBar } from "../charts.js";
 
 const SEQ_COLORS = ["#EEF3FB", "#CFE0F7", "#9CC0EE", "#5B92DF", "#1F5FD0"];
 
@@ -64,7 +66,7 @@ function buildSkeleton(container) {
   builtContainer = container;
 }
 
-function renderZipDetail(z, cityZips) {
+function renderZipDetail(z, cityZips, meta, categories) {
   const panel = document.getElementById("map-zip-detail");
   if (!panel) return;
   if (!z) {
@@ -72,6 +74,7 @@ function renderZipDetail(z, cityZips) {
     return;
   }
   panel.innerHTML = `
+    <p class="zip-headline">${zipHeadlineHtml(z, meta)}</p>
     <div><span class="badge">${escapeHtml(z.zip)}</span></div>
     <div class="zip-detail-grid">
       <div><div class="label">업체 수</div><div class="value">${fmtInt(z.biz_count)}</div></div>
@@ -80,7 +83,10 @@ function renderZipDetail(z, cityZips) {
       <div><div class="label">상권 활력 점수</div><div class="value">${fmtScore(z.vitality_score)}</div></div>
       <div><div class="label">도시 내 순위</div><div class="value">${fmtRank(z.vitality_rank)} / ${fmtInt(cityZips.length)}</div></div>
     </div>
+    <h3 style="margin-top:14px;">업종별 업체 수</h3>
+    <div class="chart-box chart-box-sm"><canvas id="map-zip-cat-chart"></canvas></div>
   `;
+  renderZipCatBar("map-zip-cat-chart", z, categories);
 }
 
 function popupHtml(z) {
@@ -111,7 +117,7 @@ export function render(container, ctx) {
     lastCityId = null;
   }
 
-  const { city, cityZips, state, actions } = ctx;
+  const { city, cityZips, state, actions, meta, categories } = ctx;
 
   if (city && city.id !== lastCityId) {
     lastCityId = city.id;
@@ -141,7 +147,7 @@ export function render(container, ctx) {
   });
 
   const selected = cityZips.find((z) => z.id === state.selectedZipId) || null;
-  renderZipDetail(selected, cityZips);
+  renderZipDetail(selected, cityZips, meta, categories);
 
   // 탭 전환 시 컨테이너 크기가 0이었을 수 있으므로 표시 시점에 사이즈 재계산
   requestAnimationFrame(() => {
