@@ -1,0 +1,19 @@
+# 원본 Yelp 데이터셋 (수 GB) — 커밋 금지
+# 앞의 슬래시가 없으면 docs/data/ 까지 제외되므로 반드시 루트 한정으로 둘 것
+/data/
+
+# 전처리 중간 산출물
+*.tmp
+.cache/
+
+# OS / 에디터
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
