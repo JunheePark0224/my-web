@@ -80,10 +80,8 @@ function renderCards(top, catLabel, zipCountInCity, meta) {
       .map(({ zip, cat }, i) => {
         const reason = buildReason(zip, cat, catLabel, zipCountInCity);
         const rankClass = i < 3 ? ` opp-card-top opp-card-top-${i + 1}` : "";
-        const breakdownChart =
-          i === 0
-            ? `<div class="chart-box chart-box-sm"><canvas id="opp-breakdown-chart"></canvas></div>`
-            : "";
+        // 1위 카드는 범례가 있는 전체판, 나머지는 막대만 있는 축소판.
+        const breakdownChart = `<div class="chart-box ${i === 0 ? "chart-box-sm" : "chart-box-mini"}"><canvas id="opp-breakdown-chart-${i}"></canvas></div>`;
         return `<div class="opp-card${rankClass}" data-zip-id="${escapeHtml(zip.id)}" tabindex="0" role="button" aria-label="${escapeHtml(zip.zip)} 지도에서 보기">
           <div class="opp-card-head">
             <span class="opp-rank-badge">${i + 1}위</span>
@@ -159,8 +157,7 @@ export function render(container, ctx) {
     });
   });
 
-  if (top.length > 0) {
-    const { zip, cat } = top[0];
-    renderOpportunityBreakdown("opp-breakdown-chart", cat, zip.vitality_score);
-  }
+  top.forEach(({ zip, cat }, i) => {
+    renderOpportunityBreakdown(`opp-breakdown-chart-${i}`, cat, zip.vitality_score, i > 0);
+  });
 }

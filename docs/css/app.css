@@ -171,6 +171,8 @@ main {
 
 .chart-box-tall { height: 260px; }
 .chart-box-sm { height: 160px; }
+/* 2위 이하 추천 카드용 축소판 — 막대만 보여준다 */
+.chart-box-mini { height: 34px; margin-bottom: 10px; }
 
 .zip-headline {
   font-weight: 700;

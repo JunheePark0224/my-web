@@ -143,7 +143,8 @@ export function renderZipCatBar(canvasId, zip, categories) {
 
 // ④ opportunity_score 구성 분해 스택 바
 // opportunity = 0.4*norm_cat_review + 0.3*vitality_score + 0.3*(100-norm_cat_biz)
-export function renderOpportunityBreakdown(canvasId, cat, vitalityScore) {
+// compact = true 이면 카드 목록용 축소판(범례·축 눈금 생략). 범례는 1위 카드에서 한 번만 보여준다.
+export function renderOpportunityBreakdown(canvasId, cat, vitalityScore, compact = false) {
   if (!hasChart()) return;
   destroyChart(canvasId);
   const el = document.getElementById(canvasId);
@@ -164,12 +165,24 @@ export function renderOpportunityBreakdown(canvasId, cat, vitalityScore) {
     options: {
       indexAxis: "y",
       animation: { duration: 300 },
+      maintainAspectRatio: false,
       scales: {
-        x: { stacked: true, beginAtZero: true, max: 100, ticks: { font: baseFont(), color: "#616B7A" }, grid: { color: "#E3E6EB" } },
-        y: { stacked: true, ticks: { font: baseFont(), color: "#14181F" }, grid: { display: false } },
+        x: {
+          stacked: true,
+          beginAtZero: true,
+          max: 100,
+          ticks: { display: !compact, font: baseFont(), color: "#616B7A" },
+          grid: { display: !compact, color: "#E3E6EB" },
+          border: { display: !compact },
+        },
+        y: { stacked: true, ticks: { display: !compact }, grid: { display: false }, border: { display: false } },
       },
       plugins: {
-        legend: { position: "bottom", labels: { font: { family: FONT_FAMILY, size: 10 }, color: "#14181F", boxWidth: 10 } },
+        legend: {
+          display: !compact,
+          position: "bottom",
+          labels: { font: { family: FONT_FAMILY, size: 10 }, color: "#14181F", boxWidth: 10 },
+        },
         tooltip: {
           bodyFont: baseFont(),
           titleFont: baseFont(),
