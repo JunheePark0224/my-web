@@ -142,14 +142,14 @@ export function renderZipCatBar(canvasId, zip, categories) {
 }
 
 // ④ opportunity_score 구성 분해 스택 바
-// opportunity = 0.4*norm_cat_review + 0.3*vitality_score + 0.3*(100-norm_cat_biz)
+// opportunity = 0.4*norm_cat_rpb + 0.3*vitality_score + 0.3*(100-norm_cat_biz)
 // compact = true 이면 카드 목록용 축소판(범례·축 눈금 생략). 범례는 1위 카드에서 한 번만 보여준다.
 export function renderOpportunityBreakdown(canvasId, cat, vitalityScore, compact = false) {
   if (!hasChart()) return;
   destroyChart(canvasId);
   const el = document.getElementById(canvasId);
   if (!el) return;
-  const demand = 0.4 * (Number(cat.norm_cat_review) || 0);
+  const demand = 0.4 * (Number(cat.norm_cat_rpb) || 0);
   const vitality = 0.3 * (Number(vitalityScore) || 0);
   const openness = 0.3 * (100 - (Number(cat.norm_cat_biz) || 0));
   const chart = new Chart(el, {
@@ -157,7 +157,7 @@ export function renderOpportunityBreakdown(canvasId, cat, vitalityScore, compact
     data: {
       labels: ["점수 구성"],
       datasets: [
-        { label: "수요 (0.4×리뷰 활동량 퍼센타일)", data: [demand], backgroundColor: "#1F5FD0", borderRadius: 4 },
+        { label: "수요 밀도 (0.4×점포당 리뷰수 퍼센타일)", data: [demand], backgroundColor: "#1F5FD0", borderRadius: 4 },
         { label: "상권 활력 (0.3×vitality)", data: [vitality], backgroundColor: "#5B92DF", borderRadius: 4 },
         { label: "경쟁 여유 (0.3×(100−업체수 퍼센타일))", data: [openness], backgroundColor: "#9CC0EE", borderRadius: 4 },
       ],

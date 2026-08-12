@@ -110,19 +110,45 @@ def main():
         rank_groups[z.get("city_id")].append(z.get("vitality_rank"))
 
         for code, entry in z.get("cats", {}).items():
-            for key, typ in [
+            # 업종 업체 수가 기준 미만이면 추천 후보에서 제외되고(opportunity_eligible=false)
+            # 퍼센타일·점수·순위는 null이 된다. 이 경우 범위/타입 검사를 건너뛴다.
+            eligible = entry.get("opportunity_eligible")
+            check(isinstance(eligible, bool), f"cats.{code}.opportunity_eligible 누락/타입 오류: {zid}")
+
+            always = [
                 ("biz_count", int), ("review_total", int), ("avg_stars", (int, float)),
+                ("review_per_biz", (int, float)), ("review_per_biz_adj", (int, float)),
+            ]
+            only_eligible = [
                 ("norm_cat_review", (int, float)), ("norm_cat_biz", (int, float)),
+                ("norm_cat_rpb", (int, float)),
                 ("opportunity_score", (int, float)), ("opportunity_rank", int),
-            ]:
+            ]
+            for key, typ in always + only_eligible:
                 check(key in entry, f"cats.{code} 레코드에 {key} 누락: {zid}")
+
+            for key, typ in always:
                 if key in entry:
                     check(isinstance(entry[key], typ), f"cats.{code}.{key} 타입 오류: {zid}")
-            for nk in ("norm_cat_review", "norm_cat_biz", "opportunity_score"):
-                v = entry.get(nk)
-                if v is None or not (0 <= v <= 100):
-                    score_range_bad.append((zid, code, nk, v))
-            cat_rank_groups[(z.get("city_id"), code)].append(entry.get("opportunity_rank"))
+            for key, typ in only_eligible:
+                if key not in entry:
+                    continue
+                if eligible:
+                    check(isinstance(entry[key], typ), f"cats.{code}.{key} 타입 오류: {zid}")
+                else:
+                    check(entry[key] is None, f"cats.{code}.{key}는 후보 제외 시 null이어야 함: {zid}")
+
+            if eligible:
+                for nk in ("norm_cat_review", "norm_cat_biz", "norm_cat_rpb", "opportunity_score"):
+                    v = entry.get(nk)
+                    if v is None or not (0 <= v <= 100):
+                        score_range_bad.append((zid, code, nk, v))
+                cat_rank_groups[(z.get("city_id"), code)].append(entry.get("opportunity_rank"))
+
+            for rk in ("review_per_biz", "review_per_biz_adj"):
+                rpb_v = entry.get(rk)
+                if rpb_v is None or rpb_v < 0:
+                    score_range_bad.append((zid, code, rk, rpb_v))
 
     check(len(biz_count_bad) == 0, f"biz_count<20 ZIP 포함: {biz_count_bad[:10]}")
     check(len(bad_city_ref) == 0, f"city_id가 meta.cities에 없는 zip: {bad_city_ref[:10]}")

@@ -234,36 +234,79 @@ def main():
             cat_biz_vals = []
             cat_rev_vals = []
             cat_star_vals = []
+            cat_rpb_vals = []
+
+            # 점포당 리뷰수는 분모가 작을수록 불안정하다. 업체 1개짜리 ZIP에 인기 점포가
+            # 하나 있으면 "미개척 수요"처럼 보여 추천 상위를 점령한다. 그래서 도시·업종
+            # 전체 평균(prior)을 향해 끌어당기는 베이지안 축소를 적용한다.
+            #   rpb_adj = (리뷰합 + K*prior) / (업체수 + K)
+            # 업체가 많은 ZIP은 prior의 영향이 미미하고, 1~2개짜리는 강하게 보정된다.
+            # 그래도 업체가 1~2개면 표본이 너무 작아 추천 후보로 쓸 수 없다(인기 점포 하나가
+            # ZIP 전체를 '미개척 수요'로 보이게 만든다). 아래 기준 미만은 추천 후보에서 제외하고,
+            # 퍼센타일도 후보 집합 안에서만 계산한다. 제외된 ZIP도 지도·랭킹에는 그대로 나온다.
+            SHRINK_K = 10
+            MIN_CAT_BIZ_FOR_OPP = 3
+
+            eligible = [zs for zs in zips_with_cat if len(zs["cat_recs"][code]) >= MIN_CAT_BIZ_FOR_OPP]
+            city_cat_reviews = 0
+            city_cat_biz = 0
+            for zs in eligible:
+                recs = zs["cat_recs"][code]
+                city_cat_biz += len(recs)
+                city_cat_reviews += sum(r["review_count"] for r in recs)
+            prior_rpb = (city_cat_reviews / city_cat_biz) if city_cat_biz else 0.0
+
             for zs in zips_with_cat:
                 recs = zs["cat_recs"][code]
                 cb = len(recs)
                 cr = sum(r["review_count"] for r in recs)
                 cs = weighted_avg_stars([(r["stars"], r["review_count"]) for r in recs])
+                rpb = round(cr / cb, 2) if cb else 0.0
+                rpb_adj = round((cr + SHRINK_K * prior_rpb) / (cb + SHRINK_K), 2)
                 zs.setdefault("cats", {})[code] = {
                     "biz_count": cb,
                     "review_total": cr,
                     "avg_stars": cs,
+                    "review_per_biz": rpb,
+                    "review_per_biz_adj": rpb_adj,
                 }
-                cat_biz_vals.append(cb)
-                cat_rev_vals.append(cr)
-                cat_star_vals.append(cs)
+                entry = zs["cats"][code]
+                entry["opportunity_eligible"] = cb >= MIN_CAT_BIZ_FOR_OPP
+                if entry["opportunity_eligible"]:
+                    cat_biz_vals.append(cb)
+                    cat_rev_vals.append(cr)
+                    cat_star_vals.append(cs)
+                    cat_rpb_vals.append(rpb_adj)
 
+            # 퍼센타일은 후보(eligible) 집합 안에서만 계산한다. 1~2개짜리 ZIP을 섞으면
+            # 분포가 왜곡되어 나머지 ZIP의 점수까지 흔들린다.
             norm_cb = percentile_ranks(cat_biz_vals)
             norm_cr = percentile_ranks(cat_rev_vals)
-            for zs, ncb, ncr in zip(zips_with_cat, norm_cb, norm_cr):
+            norm_rpb = percentile_ranks(cat_rpb_vals)
+            for zs, ncb, ncr, nrpb in zip(eligible, norm_cb, norm_cr, norm_rpb):
                 entry = zs["cats"][code]
                 entry["norm_cat_biz"] = ncb
                 entry["norm_cat_review"] = ncr
-                opp = 0.40 * ncr + 0.30 * zs["vitality_score"] + 0.30 * (100 - ncb)
+                entry["norm_cat_rpb"] = nrpb
+                opp = 0.40 * nrpb + 0.30 * zs["vitality_score"] + 0.30 * (100 - ncb)
                 opp = max(0.0, min(100.0, opp))
                 entry["opportunity_score"] = round(opp, 2)
 
+            for zs in zips_with_cat:
+                entry = zs["cats"][code]
+                if not entry["opportunity_eligible"]:
+                    entry["norm_cat_biz"] = None
+                    entry["norm_cat_review"] = None
+                    entry["norm_cat_rpb"] = None
+                    entry["opportunity_score"] = None
+                    entry["opportunity_rank"] = None
+
             opp_rank_keys = [
                 (-zs["cats"][code]["opportunity_score"], -zs["cats"][code]["review_total"], zs["zip"])
-                for zs in zips_with_cat
+                for zs in eligible
             ]
             oranks = competition_rank(opp_rank_keys)
-            for zs, orank in zip(zips_with_cat, oranks):
+            for zs, orank in zip(eligible, oranks):
                 zs["cats"][code]["opportunity_rank"] = orank
 
         # Emit zip records
@@ -274,8 +317,12 @@ def main():
                     "biz_count": entry["biz_count"],
                     "review_total": entry["review_total"],
                     "avg_stars": round(entry["avg_stars"], 2),
+                    "review_per_biz": entry["review_per_biz"],
+                    "review_per_biz_adj": entry["review_per_biz_adj"],
+                    "opportunity_eligible": entry["opportunity_eligible"],
                     "norm_cat_review": entry["norm_cat_review"],
                     "norm_cat_biz": entry["norm_cat_biz"],
+                    "norm_cat_rpb": entry["norm_cat_rpb"],
                     "opportunity_score": entry["opportunity_score"],
                     "opportunity_rank": entry["opportunity_rank"],
                 }

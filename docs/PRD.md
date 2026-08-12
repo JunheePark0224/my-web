@@ -26,9 +26,14 @@
 ### v1 지표 산식 (단순화 확정판 — §3.5보다 우선)
 ```
 vitality_score  = 0.40·norm(review_total) + 0.30·norm(biz_count) + 0.30·norm(avg_stars)
-opportunity(c)  = 0.40·norm(업종 c 리뷰수) + 0.30·vitality_score + 0.30·(100 − norm(업종 c 업체수))
+opportunity(c)  = 0.40·norm(업종 c 점포당 리뷰수) + 0.30·vitality_score + 0.30·(100 − norm(업종 c 업체수))
 ```
 `norm()`은 **도시 내부 퍼센타일 랭크(0~100)**.
+
+> 첫 항은 원래 리뷰 **총량**이었으나, 총량과 업체 수의 상관이 0.885~0.954로 너무 높아
+> 1항과 3항이 상쇄되고 결국 vitality 순위가 그대로 나오는 문제가 있었다(업종을 바꿔도
+> 추천 ZIP이 거의 동일). **점포당 리뷰수(밀도)** 로 교체해 해결했다. 상세 근거는
+> `DATA_CONTRACT.md`의 opportunity_score 산식 v2 참고.
 
 ### v1 표현 규칙 (정직성)
 - `review_total`은 유동인구가 **아니다**. UI에는 **"리뷰 활동량 (수요 proxy)"** 로 표기한다.

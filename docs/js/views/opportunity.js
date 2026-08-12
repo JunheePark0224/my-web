@@ -16,16 +16,17 @@ function pctile(v) {
   return isNil(v) ? null : Math.round(Number(v));
 }
 
-function reviewPhrase(normCatReview, catLabel) {
-  const p = pctile(normCatReview);
-  if (p === null) return `${catLabel} 리뷰 활동량 데이터가 충분하지 않음`;
+function reviewPhrase(normCatRpb, reviewPerBiz, catLabel) {
+  const p = pctile(normCatRpb);
+  const rpbTxt = isNil(reviewPerBiz) ? "" : `(점포당 리뷰 ${Math.round(Number(reviewPerBiz))}건) `;
+  if (p === null) return `${catLabel} 점포당 수요 데이터가 충분하지 않음`;
   // 퍼센타일 100 = 도시 1위. 100 - p 가 0이 되면 "상위 0%"라는 이상한 문구가 되므로 최소 1%로 둔다.
   const topPct = Math.min(100, Math.max(1, 100 - p));
-  if (p >= 99) return `${catLabel} 리뷰 활동량이 도시 최상위권으로 수요가 뚜렷함`;
-  if (p >= 75) return `${catLabel} 리뷰 활동량이 도시 상위 ${topPct}% 수준으로 수요가 뚜렷함`;
-  if (p >= 50) return `${catLabel} 리뷰 활동량이 도시 상위 ${topPct}% 수준으로 준수한 편`;
-  if (p >= 25) return `${catLabel} 리뷰 활동량이 도시 중위권(상위 ${topPct}%)`;
-  return `${catLabel} 리뷰 활동량은 아직 도시 하위 ${Math.max(1, p)}% 수준으로 수요 검증이 더 필요함`;
+  if (p >= 99) return `${catLabel} 점포당 리뷰 활동량이 ${rpbTxt}도시 최상위권으로, 점포 하나가 감당하는 수요가 큼`;
+  if (p >= 75) return `${catLabel} 점포당 리뷰 활동량이 ${rpbTxt}도시 상위 ${topPct}% 수준으로 점포당 수요가 뚜렷함`;
+  if (p >= 50) return `${catLabel} 점포당 리뷰 활동량이 ${rpbTxt}도시 상위 ${topPct}% 수준으로 준수한 편`;
+  if (p >= 25) return `${catLabel} 점포당 리뷰 활동량이 ${rpbTxt}도시 중위권(상위 ${topPct}%)`;
+  return `${catLabel} 점포당 리뷰 활동량은 ${rpbTxt}아직 도시 하위 ${Math.max(1, p)}% 수준으로 점포당 수요가 크지 않음`;
 }
 
 function densityPhrase(normCatBiz, bizCount, catLabel) {
@@ -57,7 +58,7 @@ function starsPhrase(avgStars, catLabel) {
 
 function buildReason(zip, cat, catLabel, zipCountInCity) {
   const parts = [
-    reviewPhrase(cat.norm_cat_review, catLabel),
+    reviewPhrase(cat.norm_cat_rpb, cat.review_per_biz, catLabel),
     densityPhrase(cat.norm_cat_biz, cat.biz_count, catLabel),
     vitalityPhrase(zip.vitality_score, zip.vitality_rank, zipCountInCity),
     starsPhrase(cat.avg_stars, catLabel),
@@ -110,7 +111,9 @@ function renderMethodology(meta) {
     </dl>
     <div class="metric-def">
       <dt>출점 적합도(opportunity_score)</dt>
-      <dd>업종 c 리뷰 활동량 퍼센타일 40% + 상권 활력 점수 30% + (100 − 업종 c 업체수 퍼센타일) 30%로 산출한 도시 내 0~100 점수. 수요는 있는데 아직 경쟁이 붐비지 않은 ZIP일수록 높게 나옵니다.</dd>
+      <dd>업종 c 점포당 리뷰수(review_per_biz) 퍼센타일 40% + 상권 활력 점수 30% + (100 − 업종 c 업체수 퍼센타일) 30%로 산출한 도시 내 0~100 점수. 수요는 있는데 아직 경쟁이 붐비지 않은 ZIP일수록 높게 나옵니다.
+      리뷰 총량 대신 점포당 밀도를 쓰는 이유는, 리뷰 총량이 업체 수와 상관관계가 매우 높아(업종별 0.885~0.954) 그대로 쓰면 "수요"항과 "경쟁 여유"항이 서로 상쇄되어 업종 고유의 신호가 거의 사라지기 때문입니다.
+      다만 점포당 지표는 분모가 작을수록 불안정해, 도시·업종 평균을 향해 끌어당기는 베이지안 축소(K=10)를 적용하고 <strong>해당 업종 업체가 3개 미만인 ZIP은 추천 후보에서 제외</strong>합니다(지도·랭킹에는 그대로 표시됩니다). 인기 점포 하나뿐인 ZIP이 "미개척 수요"로 오인되는 것을 막기 위한 장치입니다.</dd>
     </div>
     <div class="limits">
       데이터 한계: 본 대시보드는 Yelp Academic Dataset(미국 일부 도시, 2022년 스냅샷)을 기반으로 합니다.
